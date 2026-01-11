@@ -1,0 +1,225 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Golf Handicap Pro</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        body { font-family: -apple-system, sans-serif; background: #f0f4f8; padding: 15px; max-width: 500px; margin: auto; }
+        .card { background: white; padding: 15px; border-radius: 12px; box-shadow: 0 2px 8px rgba(0,0,0,0.1); margin-bottom: 15px; }
+        .grid-18 { display: grid; grid-template-columns: repeat(6, 1fr); gap: 8px; margin: 10px 0; }
+        input, select { width: 100%; padding: 10px; border: 1px solid #ccc; border-radius: 6px; box-sizing: border-box; font-size: 16px; }
+        button { width: 100%; padding: 14px; background: #1b4332; color: white; border: none; border-radius: 8px; font-weight: bold; cursor: pointer; margin-top: 5px; }
+        .del-btn { background: #c1121f; padding: 4px 8px; width: auto; font-size: 11px; margin: 0; }
+        .secondary-btn { background: #6c757d; font-size: 12px; width: auto; padding: 6px 10px; }
+        .hole-label { font-size: 10px; text-align: center; color: #666; margin-bottom: 2px; }
+        .score-row { display: flex; justify-content: space-between; padding: 10px 0; border-bottom: 1px solid #eee; align-items: center; }
+        .badge { background: #d8f3dc; color: #1b4332; padding: 4px 8px; border-radius: 4px; font-size: 12px; font-weight: bold; }
+        .waiting-box { background: #fff3cd; color: #856404; padding: 12px; border-radius: 8px; font-size: 14px; margin-bottom: 15px; border: 1px solid #ffeeba; }
+        canvas { margin-top: 10px; width: 100% !important; height: auto !important; }
+    </style>
+</head>
+<body>
+
+<div class="card">
+    <div style="display:flex; justify-content: space-between; align-items: center;">
+        <div><small>Handicap Index</small><h2 id="indexDisplay" style="margin:0">--.-</h2></div>
+        <button onclick="exportData()" class="secondary-btn">Backup</button>
+    </div>
+    <canvas id="handicapChart"></canvas>
+</div>
+
+<div id="pending9" class="waiting-box" style="display:none">
+    <strong>9-Hole Score Waiting:</strong> <span id="pendingText"></span>
+    <button onclick="clearPending()" class="del-btn" style="float:right">Cancel</button>
+</div>
+
+<div class="card">
+    <h3>Post Score</h3>
+    <div style="display:flex; gap:10px; margin-bottom:10px;">
+        <button id="btn18" style="background:#2d6a4f" onclick="setMode(18)">18 Holes</button>
+        <button id="btn9" style="background:#6c757d" onclick="setMode(9)">9 Holes</button>
+    </div>
+    <select id="courseSelect" onchange="renderScoreGrid()">
+        <option value="">-- Select Course --</option>
+    </select>
+    <div class="grid-18" id="scoreGrid"></div>
+    <button onclick="addRound()" style="background: #2d6a4f; margin-top: 15px;">Calculate & Post</button>
+</div>
+
+<div class="card">
+    <h3>Course Setup</h3>
+    <input type="text" id="courseName" placeholder="Course Name">
+    <div style="display: flex; gap: 5px; margin: 8px 0;">
+        <input type="number" step="0.1" id="newRating" placeholder="18h Rating">
+        <input type="number" id="newSlope" placeholder="18h Slope">
+    </div>
+    <p style="font-size: 12px; color: #666; margin: 5px 0;">Enter Par and Stroke Index (1-18) for all 18:</p>
+    <div class="grid-18" id="setupGrid"></div>
+    <button onclick="saveCourse()" style="background:#40916c">Save Course</button>
+</div>
+
+<div class="card">
+    <h3>History</h3>
+    <div id="scoreList"></div>
+</div>
+
+<script>
+    let courses = JSON.parse(localStorage.getItem('golfCourses')) || [];
+    let rounds = JSON.parse(localStorage.getItem('golfRounds')) || [];
+    let pending = JSON.parse(localStorage.getItem('pending9')) || null;
+    let roundMode = 18;
+    let myChart = null;
+
+    const setupGrid = document.getElementById('setupGrid');
+    for(let i=1; i<=18; i++) {
+        setupGrid.innerHTML += `<div><div class="hole-label">${i}</div><input type="number" id="p${i}" placeholder="P" pattern="[0-9]*" inputmode="numeric"><input type="number" id="si${i}" placeholder="SI" pattern="[0-9]*" inputmode="numeric"></div>`;
+    }
+
+    function setMode(m) {
+        roundMode = m;
+        document.getElementById('btn18').style.background = m === 18 ? '#2d6a4f' : '#6c757d';
+        document.getElementById('btn9').style.background = m === 9 ? '#2d6a4f' : '#6c757d';
+        renderScoreGrid();
+    }
+
+    function renderScoreGrid() {
+        const scGrid = document.getElementById('scoreGrid');
+        scGrid.innerHTML = '';
+        for(let i=1; i<=roundMode; i++) {
+            scGrid.innerHTML += `<div><div class="hole-label">${i}</div><input type="number" id="sc${i}" placeholder="S" pattern="[0-9]*" inputmode="numeric"></div>`;
+        }
+    }
+
+    function saveCourse() {
+        let name = document.getElementById('courseName').value;
+        let rating = document.getElementById('newRating').value;
+        let slope = document.getElementById('newSlope').value;
+        if(!name || !rating || !slope) return alert("Fill in Course Name, Rating, and Slope.");
+        
+        let pars = [], sis = [];
+        for(let i=1; i<=18; i++) {
+            pars.push(parseInt(document.getElementById(`p${i}`).value) || 4);
+            sis.push(parseInt(document.getElementById(`si${i}`).value) || i);
+        }
+        courses.push({ name, rating: parseFloat(rating), slope: parseInt(slope), pars, sis });
+        localStorage.setItem('golfCourses', JSON.stringify(courses));
+        renderCourses();
+        alert("Course Saved!");
+    }
+
+    function calculateIndexAtPoint(roundsSubset) {
+        if (roundsSubset.length < 3) return null;
+        let diffs = roundsSubset.map(r => parseFloat(r.diff)).sort((a, b) => a - b);
+        let table = { 3:1, 4:1, 5:1, 6:2, 7:2, 8:2, 9:3, 10:3, 11:3, 12:4, 13:4, 14:4, 15:5, 16:5, 17:6, 18:6, 19:7, 20:8 };
+        let numToUse = table[Math.min(roundsSubset.length, 20)];
+        let bestDiffs = diffs.slice(0, numToUse);
+        let avg = bestDiffs.reduce((a, b) => a + b, 0) / bestDiffs.length;
+        return avg.toFixed(1);
+    }
+
+    function addRound() {
+        const cIdx = document.getElementById('courseSelect').value;
+        if(cIdx === "") return alert("Select a course first");
+        const course = courses[cIdx];
+        const currentIdx = parseFloat(document.getElementById('indexDisplay').innerText) || 0;
+        
+        let courseHandicap = Math.round(currentIdx * (course.slope / 113) + (course.rating - 72));
+        if (roundMode === 9) courseHandicap = Math.round(courseHandicap / 2);
+
+        let adjustedTotal = 0;
+        for(let i=1; i<=roundMode; i++) {
+            let actual = parseInt(document.getElementById(`sc${i}`).value) || 0;
+            let par = course.pars[i-1];
+            let si = course.sis[i-1];
+            let strokes = Math.floor(courseHandicap / roundMode) + (si <= (courseHandicap % roundMode) ? 1 : 0);
+            adjustedTotal += Math.min(actual, par + 2 + strokes);
+        }
+
+        if (roundMode === 9) {
+            if (pending) {
+                const combinedScore = adjustedTotal + pending.score;
+                const diff = ((113 / course.slope) * (combinedScore - course.rating)).toFixed(1);
+                rounds.unshift({ course: `Combined: ${pending.course}/${course.name}`, score: combinedScore, diff, date: new Date().toLocaleDateString() });
+                pending = null;
+            } else {
+                pending = { score: adjustedTotal, course: course.name };
+                alert("9-Hole score saved in waiting box.");
+            }
+        } else {
+            const diff = ((113 / course.slope) * (adjustedTotal - course.rating)).toFixed(1);
+            rounds.unshift({ course: course.name, score: adjustedTotal, diff, date: new Date().toLocaleDateString() });
+        }
+
+        localStorage.setItem('golfRounds', JSON.stringify(rounds));
+        localStorage.setItem('pending9', JSON.stringify(pending));
+        updateUI();
+    }
+
+    function updateUI() {
+        document.getElementById('scoreList').innerHTML = rounds.map((r, i) => `
+            <div class="score-row">
+                <span><strong>${r.score}</strong><br><small>${r.course}</small></span>
+                <span class="badge">Diff: ${r.diff}</span>
+                <button onclick="deleteRound(${i})" class="del-btn">✕</button>
+            </div>`).join('');
+
+        const pBox = document.getElementById('pending9');
+        if (pending) {
+            pBox.style.display = 'block';
+            document.getElementById('pendingText').innerText = `${pending.score} at ${pending.course}`;
+        } else {
+            pBox.style.display = 'none';
+        }
+
+        const idx = calculateIndexAtPoint(rounds.slice(0, 20));
+        document.getElementById('indexDisplay').innerText = idx || "--.-";
+        updateChart();
+    }
+
+    function updateChart() {
+        const ctx = document.getElementById('handicapChart').getContext('2d');
+        let chartData = [];
+        let labels = [];
+        let history = rounds.slice().reverse();
+        for(let i=0; i < history.length; i++) {
+            let slice = history.slice(Math.max(0, i - 19), i + 1);
+            let val = calculateIndexAtPoint(slice);
+            if (val) { chartData.push(val); labels.push(""); }
+        }
+        if (myChart) myChart.destroy();
+        myChart = new Chart(ctx, {
+            type: 'line',
+            data: { labels: labels, datasets: [{ label: 'Index', data: chartData, borderColor: '#1b4332', backgroundColor: 'rgba(27, 67, 50, 0.1)', fill: true, tension: 0.3 }] },
+            options: { responsive: true, plugins: { legend: { display: false } }, scales: { y: { beginAtZero: false }, x: { display: false } } }
+        });
+    }
+
+    function deleteRound(i) {
+        if(confirm("Delete round?")) {
+            rounds.splice(i, 1);
+            localStorage.setItem('golfRounds', JSON.stringify(rounds));
+            updateUI();
+        }
+    }
+
+    function clearPending() { pending = null; localStorage.removeItem('pending9'); updateUI(); }
+    function renderCourses() { 
+        const sel = document.getElementById('courseSelect');
+        sel.innerHTML = '<option value="">-- Select Course --</option>' + courses.map((c, i) => `<option value="${i}">${c.name}</option>`).join(''); 
+    }
+    function exportData() {
+        const blob = new Blob([JSON.stringify({courses, rounds})], {type: 'text/plain'});
+        const a = document.createElement('a');
+        a.href = URL.createObjectURL(blob);
+        a.download = 'golf_backup.txt';
+        a.click();
+    }
+
+    renderCourses();
+    renderScoreGrid();
+    updateUI();
+</script>
+</body>
+</html>
