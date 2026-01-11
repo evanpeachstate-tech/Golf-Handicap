@@ -7,55 +7,62 @@
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <style>
         body { font-family: -apple-system, sans-serif; background: #f0f4f8; padding: 15px; max-width: 500px; margin: auto; }
-        .card { background: white; padding: 15px; border-radius: 12px; box-shadow: 0 2px 8px rgba(0,0,0,0.1); margin-bottom: 15px; }
+        .card { background: white; padding: 15px; border-radius: 12px; box-shadow: 0 2px 8px rgba(0,0,0,0.1); margin-bottom: 15px; position: relative; }
         .grid-18 { display: grid; grid-template-columns: repeat(6, 1fr); gap: 8px; margin: 10px 0; }
-        input, select { width: 100%; padding: 10px; border: 1px solid #ccc; border-radius: 6px; box-sizing: border-box; font-size: 16px; }
-        button { width: 100%; padding: 14px; background: #1b4332; color: white; border: none; border-radius: 8px; font-weight: bold; cursor: pointer; margin-top: 5px; }
-        .del-btn { background: #c1121f; padding: 4px 8px; width: auto; font-size: 11px; margin: 0; }
-        .secondary-btn { background: #6c757d; font-size: 12px; width: auto; padding: 6px 10px; }
+        input, select { width: 100%; padding: 12px; border: 1px solid #ccc; border-radius: 8px; box-sizing: border-box; font-size: 16px; -webkit-appearance: none; }
+        button { width: 100%; padding: 16px; background: #1b4332; color: white; border: none; border-radius: 10px; font-weight: bold; cursor: pointer; margin-top: 5px; font-size: 16px; }
+        .del-btn { background: #c1121f; padding: 6px 10px; width: auto; font-size: 12px; margin: 0; border-radius: 6px; }
+        .secondary-btn { background: #6c757d; font-size: 13px; width: auto; padding: 8px 12px; border-radius: 8px; }
+        .refresh-btn { background: #007bff; font-size: 13px; width: auto; padding: 8px 12px; border-radius: 8px; }
         .hole-label { font-size: 10px; text-align: center; color: #666; margin-bottom: 2px; }
-        .score-row { display: flex; justify-content: space-between; padding: 10px 0; border-bottom: 1px solid #eee; align-items: center; }
-        .badge { background: #d8f3dc; color: #1b4332; padding: 4px 8px; border-radius: 4px; font-size: 12px; font-weight: bold; }
-        .waiting-box { background: #fff3cd; color: #856404; padding: 12px; border-radius: 8px; font-size: 14px; margin-bottom: 15px; border: 1px solid #ffeeba; }
-        canvas { margin-top: 10px; width: 100% !important; height: auto !important; }
+        .score-row { display: flex; justify-content: space-between; padding: 12px 0; border-bottom: 1px solid #eee; align-items: center; }
+        .badge { background: #d8f3dc; color: #1b4332; padding: 5px 10px; border-radius: 6px; font-size: 13px; font-weight: bold; }
+        .waiting-box { background: #fff3cd; color: #856404; padding: 15px; border-radius: 10px; font-size: 14px; margin-bottom: 15px; border: 1px solid #ffeeba; }
+        .header-actions { display: flex; gap: 8px; }
+        canvas { margin-top: 15px; width: 100% !important; height: auto !important; }
     </style>
 </head>
 <body>
 
 <div class="card">
     <div style="display:flex; justify-content: space-between; align-items: center;">
-        <div><small>Handicap Index</small><h2 id="indexDisplay" style="margin:0">--.-</h2></div>
-        <button onclick="exportData()" class="secondary-btn">Backup</button>
+        <div><small>Handicap Index</small><h2 id="indexDisplay" style="margin:0; font-size: 32px;">--.-</h2></div>
+        <div class="header-actions">
+            <button onclick="window.location.reload()" class="refresh-btn">Refresh</button>
+            <button onclick="exportData()" class="secondary-btn">Backup</button>
+        </div>
     </div>
     <canvas id="handicapChart"></canvas>
 </div>
 
 <div id="pending9" class="waiting-box" style="display:none">
-    <strong>9-Hole Score Waiting:</strong> <span id="pendingText"></span>
-    <button onclick="clearPending()" class="del-btn" style="float:right">Cancel</button>
+    <div style="display:flex; justify-content: space-between; align-items: center;">
+        <span><strong>9-Hole Waiting:</strong> <span id="pendingText"></span></span>
+        <button onclick="clearPending()" class="del-btn">Cancel</button>
+    </div>
 </div>
 
 <div class="card">
     <h3>Post Score</h3>
-    <div style="display:flex; gap:10px; margin-bottom:10px;">
-        <button id="btn18" style="background:#2d6a4f" onclick="setMode(18)">18 Holes</button>
-        <button id="btn9" style="background:#6c757d" onclick="setMode(9)">9 Holes</button>
+    <div style="display:flex; gap:10px; margin-bottom:15px;">
+        <button id="btn18" style="background:#2d6a4f; padding: 12px;" onclick="setMode(18)">18 Holes</button>
+        <button id="btn9" style="background:#6c757d; padding: 12px;" onclick="setMode(9)">9 Holes</button>
     </div>
     <select id="courseSelect" onchange="renderScoreGrid()">
         <option value="">-- Select Course --</option>
     </select>
     <div class="grid-18" id="scoreGrid"></div>
-    <button onclick="addRound()" style="background: #2d6a4f; margin-top: 15px;">Calculate & Post</button>
+    <button onclick="addRound()" style="background: #2d6a4f; margin-top: 15px; height: 60px;">Post Round</button>
 </div>
 
 <div class="card">
     <h3>Course Setup</h3>
     <input type="text" id="courseName" placeholder="Course Name">
-    <div style="display: flex; gap: 5px; margin: 8px 0;">
-        <input type="number" step="0.1" id="newRating" placeholder="18h Rating">
-        <input type="number" id="newSlope" placeholder="18h Slope">
+    <div style="display: flex; gap: 8px; margin: 8px 0;">
+        <input type="number" step="0.1" id="newRating" placeholder="18h Rating" inputmode="decimal">
+        <input type="number" id="newSlope" placeholder="18h Slope" inputmode="numeric">
     </div>
-    <p style="font-size: 12px; color: #666; margin: 5px 0;">Enter Par and Stroke Index (1-18) for all 18:</p>
+    <p style="font-size: 12px; color: #666; margin: 10px 0;">Enter Par & Stroke Index (Handicap row) for 18 holes:</p>
     <div class="grid-18" id="setupGrid"></div>
     <button onclick="saveCourse()" style="background:#40916c">Save Course</button>
 </div>
@@ -72,9 +79,10 @@
     let roundMode = 18;
     let myChart = null;
 
+    // Initialize Setup Grids
     const setupGrid = document.getElementById('setupGrid');
     for(let i=1; i<=18; i++) {
-        setupGrid.innerHTML += `<div><div class="hole-label">${i}</div><input type="number" id="p${i}" placeholder="P" pattern="[0-9]*" inputmode="numeric"><input type="number" id="si${i}" placeholder="SI" pattern="[0-9]*" inputmode="numeric"></div>`;
+        setupGrid.innerHTML += `<div><div class="hole-label">${i}</div><input type="number" id="p${i}" placeholder="P" inputmode="numeric"><input type="number" id="si${i}" placeholder="SI" inputmode="numeric"></div>`;
     }
 
     function setMode(m) {
@@ -88,7 +96,7 @@
         const scGrid = document.getElementById('scoreGrid');
         scGrid.innerHTML = '';
         for(let i=1; i<=roundMode; i++) {
-            scGrid.innerHTML += `<div><div class="hole-label">${i}</div><input type="number" id="sc${i}" placeholder="S" pattern="[0-9]*" inputmode="numeric"></div>`;
+            scGrid.innerHTML += `<div><div class="hole-label">${i}</div><input type="number" id="sc${i}" placeholder="S" inputmode="numeric"></div>`;
         }
     }
 
@@ -96,7 +104,7 @@
         let name = document.getElementById('courseName').value;
         let rating = document.getElementById('newRating').value;
         let slope = document.getElementById('newSlope').value;
-        if(!name || !rating || !slope) return alert("Fill in Course Name, Rating, and Slope.");
+        if(!name || !rating || !slope) return alert("Missing Course Info.");
         
         let pars = [], sis = [];
         for(let i=1; i<=18; i++) {
@@ -116,12 +124,12 @@
         let numToUse = table[Math.min(roundsSubset.length, 20)];
         let bestDiffs = diffs.slice(0, numToUse);
         let avg = bestDiffs.reduce((a, b) => a + b, 0) / bestDiffs.length;
-        return avg.toFixed(1);
+        return (avg * 1).toFixed(1); 
     }
 
     function addRound() {
         const cIdx = document.getElementById('courseSelect').value;
-        if(cIdx === "") return alert("Select a course first");
+        if(cIdx === "") return alert("Select a course.");
         const course = courses[cIdx];
         const currentIdx = parseFloat(document.getElementById('indexDisplay').innerText) || 0;
         
@@ -145,7 +153,7 @@
                 pending = null;
             } else {
                 pending = { score: adjustedTotal, course: course.name };
-                alert("9-Hole score saved in waiting box.");
+                alert("9-hole score saved. Post one more 9-hole round to combine.");
             }
         } else {
             const diff = ((113 / course.slope) * (adjustedTotal - course.rating)).toFixed(1);
@@ -191,7 +199,7 @@
         if (myChart) myChart.destroy();
         myChart = new Chart(ctx, {
             type: 'line',
-            data: { labels: labels, datasets: [{ label: 'Index', data: chartData, borderColor: '#1b4332', backgroundColor: 'rgba(27, 67, 50, 0.1)', fill: true, tension: 0.3 }] },
+            data: { labels: labels, datasets: [{ label: 'Index', data: chartData, borderColor: '#1b4332', backgroundColor: 'rgba(27, 67, 50, 0.1)', fill: true, tension: 0.3, pointRadius: 4 }] },
             options: { responsive: true, plugins: { legend: { display: false } }, scales: { y: { beginAtZero: false }, x: { display: false } } }
         });
     }
@@ -205,12 +213,15 @@
     }
 
     function clearPending() { pending = null; localStorage.removeItem('pending9'); updateUI(); }
+    
     function renderCourses() { 
         const sel = document.getElementById('courseSelect');
         sel.innerHTML = '<option value="">-- Select Course --</option>' + courses.map((c, i) => `<option value="${i}">${c.name}</option>`).join(''); 
     }
+    
     function exportData() {
-        const blob = new Blob([JSON.stringify({courses, rounds})], {type: 'text/plain'});
+        const data = JSON.stringify({courses, rounds});
+        const blob = new Blob([data], {type: 'text/plain'});
         const a = document.createElement('a');
         a.href = URL.createObjectURL(blob);
         a.download = 'golf_backup.txt';
