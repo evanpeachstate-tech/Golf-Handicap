@@ -131,8 +131,10 @@
         if(cIdx === "") return alert("Select a course.");
         const course = courses[cIdx];
         const currentIdx = parseFloat(document.getElementById('indexDisplay').innerText) || 0;
+        
         let hcp = Math.round(currentIdx * (course.slope / 113) + (course.rating - 72));
         if (roundMode === 9) hcp = Math.round(hcp / 2);
+
         let adjTotal = 0;
         for(let i=1; i<=roundMode; i++) {
             let actual = parseInt(document.getElementById(`sc${i}`).value) || 0;
@@ -141,20 +143,28 @@
             let strokes = Math.floor(hcp / roundMode) + (si <= (hcp % roundMode) ? 1 : 0);
             adjTotal += Math.min(actual, par + 2 + strokes);
         }
+
         if (roundMode === 9) {
             if (pending) {
+                // Combine scores from different courses
                 const combinedScore = adjTotal + pending.score;
                 const diff = ((113 / course.slope) * (combinedScore - course.rating)).toFixed(1);
-                rounds.unshift({ course: `Combined: ${pending.course}/${course.name}`, score: combinedScore, diff, date: new Date().toLocaleDateString() });
+                rounds.unshift({ 
+                    course: `Combined: ${pending.course}/${course.name}`, 
+                    score: combinedScore, 
+                    diff, 
+                    date: new Date().toLocaleDateString() 
+                });
                 pending = null;
             } else {
                 pending = { score: adjTotal, course: course.name };
-                alert("9-hole score saved. Pair it with one more 9-hole round.");
+                alert("9-hole score saved. Post your next 9 to combine.");
             }
         } else {
             const diff = ((113 / course.slope) * (adjTotal - course.rating)).toFixed(1);
             rounds.unshift({ course: course.name, score: adjTotal, diff, date: new Date().toLocaleDateString() });
         }
+
         localStorage.setItem('golfRounds', JSON.stringify(rounds));
         localStorage.setItem('pending9', JSON.stringify(pending));
         updateUI();
@@ -167,11 +177,15 @@
                 <span class="badge">Diff: ${r.diff}</span>
                 <button onclick="deleteRound(${i})" class="del-btn">✕</button>
             </div>`).join('');
+
         const pBox = document.getElementById('pending9');
         if (pending) {
             pBox.style.display = 'block';
             document.getElementById('pendingText').innerText = `${pending.score} at ${pending.course}`;
-        } else { pBox.style.display = 'none'; }
+        } else { 
+            pBox.style.display = 'none'; 
+        }
+
         const idx = calculateIndexAtPoint(rounds.slice(0, 20));
         document.getElementById('indexDisplay').innerText = idx || "--.-";
         updateChart();
@@ -194,16 +208,9 @@
         });
     }
 
-    <script>
-    // ... (Inside the script section, update these three functions) ...
-
     function exportData() {
-        // Now includes 'pending' in the backup object
-        const data = JSON.stringify({
-            courses: courses, 
-            rounds: rounds, 
-            pending: pending 
-        });
+        // Includes 'pending' to capture half-rounds in backup
+        const data = JSON.stringify({courses, rounds, pending});
         const blob = new Blob([data], {type: 'text/plain'});
         const a = document.createElement('a');
         a.href = URL.createObjectURL(blob);
@@ -216,37 +223,25 @@
         if (data) {
             try {
                 const parsed = JSON.parse(data);
-                
-                // Update Courses & Rounds
                 courses = parsed.courses || [];
                 rounds = parsed.rounds || [];
+                pending = parsed.pending || null; // Restore half-rounds
+
                 localStorage.setItem('golfCourses', JSON.stringify(courses));
                 localStorage.setItem('golfRounds', JSON.stringify(rounds));
-                
-                // NEW: Update the Pending 9-hole round if it exists in the backup
-                if (parsed.pending) {
-                    pending = parsed.pending;
-                    localStorage.setItem('pending9', JSON.stringify(pending));
-                } else {
-                    pending = null;
-                    localStorage.removeItem('pending9');
-                }
+                if(pending) localStorage.setItem('pending9', JSON.stringify(pending));
+                else localStorage.removeItem('pending9');
 
                 renderCourses();
                 updateUI();
-                alert("Data imported! (Including any pending 9-hole scores)");
-            } catch (e) { 
-                alert("Import failed. Make sure you copied the entire text."); 
-            }
+                alert("Import Successful!");
+            } catch (e) { alert("Import failed. Check text."); }
         }
     }
 
-    // ... (Keep the rest of the logic for addRound and updateUI the same) ...
-</script>
-
-
     function deleteRound(i) { if(confirm("Delete round?")) { rounds.splice(i, 1); localStorage.setItem('golfRounds', JSON.stringify(rounds)); updateUI(); } }
     function clearPending() { pending = null; localStorage.removeItem('pending9'); updateUI(); }
+    
     function renderCourses() { 
         const sel = document.getElementById('courseSelect');
         sel.innerHTML = '<option value="">-- Select Course --</option>' + courses.map((c, i) => `<option value="${i}">${c.name}</option>`).join(''); 
