@@ -194,8 +194,17 @@
         });
     }
 
+    <script>
+    // ... (Inside the script section, update these three functions) ...
+
     function exportData() {
-        const blob = new Blob([JSON.stringify({courses, rounds})], {type: 'text/plain'});
+        // Now includes 'pending' in the backup object
+        const data = JSON.stringify({
+            courses: courses, 
+            rounds: rounds, 
+            pending: pending 
+        });
+        const blob = new Blob([data], {type: 'text/plain'});
         const a = document.createElement('a');
         a.href = URL.createObjectURL(blob);
         a.download = 'golf_backup.txt';
@@ -207,16 +216,34 @@
         if (data) {
             try {
                 const parsed = JSON.parse(data);
-                courses = parsed.courses;
-                rounds = parsed.rounds;
+                
+                // Update Courses & Rounds
+                courses = parsed.courses || [];
+                rounds = parsed.rounds || [];
                 localStorage.setItem('golfCourses', JSON.stringify(courses));
                 localStorage.setItem('golfRounds', JSON.stringify(rounds));
+                
+                // NEW: Update the Pending 9-hole round if it exists in the backup
+                if (parsed.pending) {
+                    pending = parsed.pending;
+                    localStorage.setItem('pending9', JSON.stringify(pending));
+                } else {
+                    pending = null;
+                    localStorage.removeItem('pending9');
+                }
+
                 renderCourses();
                 updateUI();
-                alert("Data imported!");
-            } catch (e) { alert("Import failed. Check text."); }
+                alert("Data imported! (Including any pending 9-hole scores)");
+            } catch (e) { 
+                alert("Import failed. Make sure you copied the entire text."); 
+            }
         }
     }
+
+    // ... (Keep the rest of the logic for addRound and updateUI the same) ...
+</script>
+
 
     function deleteRound(i) { if(confirm("Delete round?")) { rounds.splice(i, 1); localStorage.setItem('golfRounds', JSON.stringify(rounds)); updateUI(); } }
     function clearPending() { pending = null; localStorage.removeItem('pending9'); updateUI(); }
