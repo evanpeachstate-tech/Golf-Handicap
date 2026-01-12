@@ -132,7 +132,8 @@
         const course = courses[cIdx];
         const currentIdx = parseFloat(document.getElementById('indexDisplay').innerText) || 0;
         
-        let hcp = Math.round(currentIdx * (course.slope / 113) + (course.rating - 72));
+        // Use Index to find course handicap, default to 0 for Net Double Bogey (Par+2)
+        let hcp = currentIdx ? Math.round(currentIdx * (course.slope / 113) + (course.rating - 72)) : 0;
         if (roundMode === 9) hcp = Math.round(hcp / 2);
 
         let adjTotal = 0;
@@ -140,13 +141,14 @@
             let actual = parseInt(document.getElementById(`sc${i}`).value) || 0;
             let par = course.pars[i-1];
             let si = course.sis[i-1];
+            // Strokes allowed on this hole based on current handicap
             let strokes = Math.floor(hcp / roundMode) + (si <= (hcp % roundMode) ? 1 : 0);
+            // RULE: Adjusted Score = Par + 2 + Handicap Strokes
             adjTotal += Math.min(actual, par + 2 + strokes);
         }
 
         if (roundMode === 9) {
             if (pending) {
-                // Combine scores from different courses
                 const combinedScore = adjTotal + pending.score;
                 const diff = ((113 / course.slope) * (combinedScore - course.rating)).toFixed(1);
                 rounds.unshift({ 
@@ -158,7 +160,7 @@
                 pending = null;
             } else {
                 pending = { score: adjTotal, course: course.name };
-                alert("9-hole score saved. Post your next 9 to combine.");
+                alert("9-hole score saved (Net Double Bogey applied).");
             }
         } else {
             const diff = ((113 / course.slope) * (adjTotal - course.rating)).toFixed(1);
@@ -182,9 +184,7 @@
         if (pending) {
             pBox.style.display = 'block';
             document.getElementById('pendingText').innerText = `${pending.score} at ${pending.course}`;
-        } else { 
-            pBox.style.display = 'none'; 
-        }
+        } else { pBox.style.display = 'none'; }
 
         const idx = calculateIndexAtPoint(rounds.slice(0, 20));
         document.getElementById('indexDisplay').innerText = idx || "--.-";
@@ -209,7 +209,6 @@
     }
 
     function exportData() {
-        // Includes 'pending' to capture half-rounds in backup
         const data = JSON.stringify({courses, rounds, pending});
         const blob = new Blob([data], {type: 'text/plain'});
         const a = document.createElement('a');
@@ -225,23 +224,20 @@
                 const parsed = JSON.parse(data);
                 courses = parsed.courses || [];
                 rounds = parsed.rounds || [];
-                pending = parsed.pending || null; // Restore half-rounds
-
+                pending = parsed.pending || null;
                 localStorage.setItem('golfCourses', JSON.stringify(courses));
                 localStorage.setItem('golfRounds', JSON.stringify(rounds));
                 if(pending) localStorage.setItem('pending9', JSON.stringify(pending));
                 else localStorage.removeItem('pending9');
-
                 renderCourses();
                 updateUI();
                 alert("Import Successful!");
-            } catch (e) { alert("Import failed. Check text."); }
+            } catch (e) { alert("Import failed."); }
         }
     }
 
     function deleteRound(i) { if(confirm("Delete round?")) { rounds.splice(i, 1); localStorage.setItem('golfRounds', JSON.stringify(rounds)); updateUI(); } }
     function clearPending() { pending = null; localStorage.removeItem('pending9'); updateUI(); }
-    
     function renderCourses() { 
         const sel = document.getElementById('courseSelect');
         sel.innerHTML = '<option value="">-- Select Course --</option>' + courses.map((c, i) => `<option value="${i}">${c.name}</option>`).join(''); 
