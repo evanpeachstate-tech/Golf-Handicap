@@ -130,10 +130,11 @@
         const cIdx = document.getElementById('courseSelect').value;
         if(cIdx === "") return alert("Select a course.");
         const course = courses[cIdx];
-        const currentIdx = parseFloat(document.getElementById('indexDisplay').innerText) || 0;
+        const displayVal = document.getElementById('indexDisplay').innerText;
+        const currentIdx = (displayVal === "--.-") ? null : parseFloat(displayVal);
         
-        // Use Index to find course handicap, default to 0 for Net Double Bogey (Par+2)
-        let hcp = currentIdx ? Math.round(currentIdx * (course.slope / 113) + (course.rating - 72)) : 0;
+        // Calculate course handicap. If no index, assume scratch for Net Double Bogey (Par+2) limit.
+        let hcp = (currentIdx !== null) ? Math.round(currentIdx * (course.slope / 113) + (course.rating - 72)) : 0;
         if (roundMode === 9) hcp = Math.round(hcp / 2);
 
         let adjTotal = 0;
@@ -141,10 +142,13 @@
             let actual = parseInt(document.getElementById(`sc${i}`).value) || 0;
             let par = course.pars[i-1];
             let si = course.sis[i-1];
-            // Strokes allowed on this hole based on current handicap
+            
+            // Strokes allowed on this hole
             let strokes = Math.floor(hcp / roundMode) + (si <= (hcp % roundMode) ? 1 : 0);
-            // RULE: Adjusted Score = Par + 2 + Handicap Strokes
-            adjTotal += Math.min(actual, par + 2 + strokes);
+            
+            // STRICT RULE: Max score is Par + 2 + strokes.
+            let maxHoleScore = par + 2 + strokes;
+            adjTotal += Math.min(actual, maxHoleScore);
         }
 
         if (roundMode === 9) {
@@ -160,7 +164,7 @@
                 pending = null;
             } else {
                 pending = { score: adjTotal, course: course.name };
-                alert("9-hole score saved (Net Double Bogey applied).");
+                alert("9-hole score saved as: " + adjTotal);
             }
         } else {
             const diff = ((113 / course.slope) * (adjTotal - course.rating)).toFixed(1);
